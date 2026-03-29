@@ -3,9 +3,8 @@
 一款利用班级魔方的OSS存储服务开发的免费图床工具，支持上传图片、文档、演示文件等格式的文件。
 
 核心亮点，利用了班级魔方的接口，实现了免费使用国内高速的OSS存储。
-
-上传文件 ——> 文件链接
-
+无需自己购买OSS存储以及域名，直接使用班级魔方的OSS存储服务和域名。
+实现0成本，使用国内高速的OSS存储服务。
 
 ### 支持的文件格式
 - **图片**：.png, .jpg, .jpeg
@@ -99,6 +98,10 @@ python free.py -i "C:\Users\User\Desktop\example.png" -c "remember_student=xxx"
 COURSE_URL=https://k8n.cn/student/profile/course/136098/26244
 COOKIE_STRING=remember_student=xxx
 ```
+
+## 相关项目
+
+网页版本：[PicUp](https://github.com/itrfcn/PicUp)
 
 ## 许可证
 
