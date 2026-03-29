@@ -2,9 +2,11 @@
 
 一款利用班级魔方的OSS存储服务开发的免费图床工具，支持上传图片、文档、演示文件等格式的文件。
 
-核心亮点，利用了班级魔方的接口，实现了免费使用国内高速的OSS存储。
-无需自己购买OSS存储以及域名，直接使用班级魔方的OSS存储服务和域名。
-实现0成本，使用国内高速的OSS存储服务。
+- 核心亮点，利用了班级魔方的接口，实现了免费使用国内高速的OSS存储。
+- 无需自己购买OSS存储以及域名，直接使用班级魔方的OSS存储服务和域名。
+- 实现0成本，使用国内高速的OSS存储服务。
+
+想直接使用，点击这里：[免费图床工具](https://github.com/itrfcn/Freepic/releases/latest)
 
 ### 支持的文件格式
 - **图片**：.png, .jpg, .jpeg
@@ -17,7 +19,7 @@
 
 ### 系统要求
 - Windows, macOS, Linux
-- Python 3.7+
+- Python 3.12+
 
 ### 依赖库
 ```
@@ -43,12 +45,12 @@ python gui.py
 ```
 #### 参数获取
 
-需要微信扫码注册班级魔方教师账号和学生账号，一个微信就可以同时注册学生账号和教师账号。
-教师账号创建班级，学生账号加入班级。
-教师账号发布一个 填报/问卷 添加文件上传项，学生账号加入填报/问卷。
-问卷的链接就是 COURSE_URL 参数。
-COOKIE_STRING是学生账号的Cookie信息的remember_student部分，s=部分会自动获取。
-Cookie有效期为5年放心使用。
+- 需要微信扫码注册班级魔方教师账号和学生账号，一个微信就可以同时注册学生账号和教师账号。
+- 教师账号创建班级，学生账号加入班级。
+- 教师账号发布一个 填报/问卷 添加文件上传项，学生账号加入填报/问卷。
+- 问卷的链接就是 COURSE_URL 参数。
+- COOKIE_STRING是学生账号的Cookie信息的remember_student部分，s=部分会自动获取。
+- Cookie有效期为5年放心使用。
 
 #### 使用步骤
 1. **配置设置**：
@@ -95,7 +97,7 @@ python free.py -i "C:\Users\User\Desktop\example.png" -c "remember_student=xxx"
 
 创建.env文件并添加配置：
 ```
-COURSE_URL=https://k8n.cn/student/profile/course/136098/26244
+COURSE_URL=https://k8n.cn/student/profile/course/11111/11111
 COOKIE_STRING=remember_student=xxx
 ```
 
