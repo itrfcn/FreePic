@@ -15,13 +15,14 @@ class FileUploadGUI:
         self.root = root
         self.root.title("免费图床工具 v1.0")
         self.root.geometry("600x550")
-        self.root.resizable(False, False)
+        self.root.resizable(False, True)  # 允许垂直调整大小
         
         # 初始化变量
-        self.selected_file = tk.StringVar()
+        self.selected_files = []
         self.cookie_var = tk.StringVar(value=COOKIE_STRING)
         self.course_url_var = tk.StringVar(value=COURSE_URL)
         self.status_var = tk.StringVar(value="就绪")
+        self.uploaded_files = []  # 存储所有成功上传的文件信息
         
         # 创建主框架（减少顶部内边距）
         self.main_frame = ttk.Frame(root, padding="1 10 10 10")  # 上 右 下 左
@@ -48,7 +49,9 @@ class FileUploadGUI:
         file_frame.pack(fill=tk.X, pady=5)
         
         ttk.Label(file_frame, text="选择文件：").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
-        ttk.Entry(file_frame, textvariable=self.selected_file, width=50, state='readonly').grid(row=0, column=1, padx=5, pady=5)
+        # 创建一个显示区域用于显示选中的文件
+        self.file_list_frame = ttk.Frame(file_frame)
+        self.file_list_frame.grid(row=1, column=0, columnspan=3, padx=5, pady=5, sticky=tk.W)
         ttk.Button(file_frame, text="浏览", command=self.browse_file).grid(row=0, column=2, padx=5, pady=5)
         
         # 2. 配置区域
@@ -85,20 +88,17 @@ class FileUploadGUI:
         url_frame = ttk.LabelFrame(self.main_frame, text="文件URL", padding="10")
         url_frame.pack(fill=tk.X, pady=5)
         
-        # 文件URL标签、复制按钮和浏览器打开按钮
-        ttk.Label(url_frame, text="文件地址：").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
+        # 创建一个容器用于显示多个URL项
+        self.url_items_container = ttk.Frame(url_frame)
+        self.url_items_container.pack(fill=tk.X, pady=5)
         
-        self.file_url_var = tk.StringVar()
-        self.file_url_entry = ttk.Entry(url_frame, textvariable=self.file_url_var, width=40, state='readonly')
-        self.file_url_entry.grid(row=0, column=1, padx=5, pady=5)
+        # 添加复制所有按钮
+        self.copy_all_btn = ttk.Button(url_frame, text="复制所有", command=self.copy_all_urls)
+        self.copy_all_btn.pack(side=tk.RIGHT, padx=5, pady=5)
+        self.copy_all_btn.config(state="disabled")  # 初始状态禁用
         
-        self.copy_btn = ttk.Button(url_frame, text="复制", command=self.copy_to_clipboard)
-        self.copy_btn.grid(row=0, column=2, padx=5, pady=5)
-        self.copy_btn.config(state="disabled")  # 初始状态禁用
-        
-        self.open_btn = ttk.Button(url_frame, text="打开", command=self.open_in_browser)
-        self.open_btn.grid(row=0, column=3, padx=5, pady=5)
-        self.open_btn.config(state="disabled")  # 初始状态禁用
+        # 初始化URL项存储
+        self.url_items = []
         
         # 5. 结果显示区域
         result_frame = ttk.LabelFrame(self.main_frame, text="上传结果", padding="10")
@@ -131,32 +131,92 @@ class FileUploadGUI:
         except Exception as e:
             messagebox.showerror("错误", f"无法打开网页：{str(e)}")
     
-    def copy_to_clipboard(self):
-        """复制文件URL到剪贴板"""
-        url = self.file_url_var.get().strip()
+
+    
+    def copy_all_urls(self):
+        """复制所有成功上传的文件URL到剪贴板"""
+        if not self.uploaded_files:
+            messagebox.showwarning("警告", "没有成功上传的文件！")
+            return
+            
+        try:
+            # 收集所有URL
+            urls = [file_info['file'] for file_info in self.uploaded_files]
+            urls_text = '\n'.join(urls)
+            
+            # 将URL复制到剪贴板
+            self.root.clipboard_clear()
+            self.root.clipboard_append(urls_text)
+            self.root.update()  # 保持剪贴板内容
+            
+            messagebox.showinfo("成功", f"已复制 {len(urls)} 个文件URL到剪贴板！")
+        except Exception as e:
+            messagebox.showerror("错误", f"复制失败：{str(e)}")
+    
+    def create_url_item(self, file_info, index):
+        """为每个成功上传的文件创建URL显示项"""
+        # 创建URL项框架
+        url_item_frame = ttk.Frame(self.url_items_container)
+        url_item_frame.pack(fill=tk.X, pady=3)
+        
+        # 创建URL标签
+        url_label = ttk.Label(url_item_frame, text=f"文件 {index+1}：", anchor=tk.W)
+        url_label.pack(side=tk.LEFT, padx=5, pady=2)
+        
+        # 创建URL输入框
+        url_var = tk.StringVar(value=file_info['file'])
+        url_entry = ttk.Entry(url_item_frame, textvariable=url_var, width=50, state='readonly')
+        url_entry.pack(side=tk.LEFT, padx=5, pady=2, fill=tk.X, expand=True)
+        
+        # 创建复制按钮
+        copy_btn = ttk.Button(url_item_frame, text="复制", width=8, 
+                            command=lambda u=file_info['file'], f=file_info['name']: self.copy_single_url(u, f))
+        copy_btn.pack(side=tk.LEFT, padx=5, pady=2)
+        
+        # 创建打开按钮
+        open_btn = ttk.Button(url_item_frame, text="打开", width=8, 
+                            command=lambda u=file_info['file'], f=file_info['name']: self.open_single_url(u, f))
+        open_btn.pack(side=tk.LEFT, padx=5, pady=2)
+        
+        # 保存URL项信息
+        return {
+            'frame': url_item_frame,
+            'url_var': url_var,
+            'url_entry': url_entry,
+            'copy_btn': copy_btn,
+            'open_btn': open_btn
+        }
+    
+    def copy_single_url(self, url, filename):
+        """复制单个文件URL到剪贴板"""
         if url:
             try:
                 # 将URL复制到剪贴板
                 self.root.clipboard_clear()
                 self.root.clipboard_append(url)
                 self.root.update()  # 保持剪贴板内容
-                messagebox.showinfo("成功", "文件URL已复制到剪贴板！")
+                messagebox.showinfo("成功", f"文件 '{filename}' 的URL已复制到剪贴板！")
             except Exception as e:
                 messagebox.showerror("错误", f"复制失败：{str(e)}")
     
-    def open_in_browser(self):
-        """在浏览器中打开文件URL"""
-        url = self.file_url_var.get().strip()
+    def open_single_url(self, url, filename):
+        """在浏览器中打开单个文件URL"""
         if url:
             try:
                 webbrowser.open(url)
-                messagebox.showinfo("成功", "文件URL已在浏览器中打开！")
+                messagebox.showinfo("成功", f"文件 '{filename}' 的URL已在浏览器中打开！")
             except Exception as e:
                 messagebox.showerror("错误", f"打开失败：{str(e)}")
     
+    def clear_url_items(self):
+        """清空所有URL显示项"""
+        for item in self.url_items:
+            item['frame'].destroy()
+        self.url_items = []
+    
     def browse_file(self):
         """浏览文件"""
-        file_path = filedialog.askopenfilename(
+        file_paths = filedialog.askopenfilenames(
             title="选择文件",
             filetypes=[
                 ("所有支持的文件", "*.png *.jpg *.jpeg *.txt *.doc *.docx *.ppt *.pptx *.xls *.xlsx"),
@@ -166,9 +226,61 @@ class FileUploadGUI:
                 ("表格文件", "*.xls *.xlsx"),
             ]
         )
-        if file_path:
-            self.selected_file.set(file_path)
-            self.status_var.set(f"已选择文件：{os.path.basename(file_path)}")
+        if file_paths:
+            self.selected_files = list(file_paths)
+            file_names = [os.path.basename(f) for f in self.selected_files]
+            self.status_var.set(f"已选择 {len(self.selected_files)} 个文件：{', '.join(file_names[:3])}{'...' if len(file_names) > 3 else ''}")
+            # 更新文件选择显示
+            self.update_file_selection_display()
+    
+    def update_file_selection_display(self):
+        """更新文件选择显示区域"""
+        # 清空之前的显示
+        for widget in self.file_list_frame.winfo_children():
+            widget.destroy()
+        
+        if not self.selected_files:
+            ttk.Label(self.file_list_frame, text="未选择任何文件", foreground="gray").pack(anchor=tk.W)
+            return
+        
+        # 创建文件列表
+        file_list = ttk.Treeview(self.file_list_frame, columns=('filename'), show='headings', height=min(5, len(self.selected_files)))
+        file_list.heading('filename', text='文件名')
+        file_list.column('filename', width=500)
+        
+        for file_path in self.selected_files:
+            filename = os.path.basename(file_path)
+            file_list.insert('', tk.END, values=(filename,))
+        
+        file_list.pack(fill=tk.X, expand=True)
+        
+        # 添加删除按钮
+        ttk.Button(self.file_list_frame, text="清除选择", command=self.clear_file_selection).pack(side=tk.RIGHT, padx=5, pady=5)
+        
+        # 自动调整窗口高度
+        self.adjust_window_height()
+    
+    def clear_file_selection(self):
+        """清除已选择的文件"""
+        self.selected_files = []
+        self.status_var.set("就绪")
+        self.update_file_selection_display()
+        self.adjust_window_height()
+    
+    def adjust_window_height(self):
+        """根据内容自动调整窗口高度"""
+        # 计算主框架的总高度
+        main_height = self.main_frame.winfo_reqheight()
+        
+        # 计算窗口需要的总高度（主框架高度 + 窗口标题栏高度）
+        window_height = main_height + 50  # 50是窗口标题栏和边框的大概高度
+        
+        # 设置窗口最小高度为原始高度
+        min_height = 550
+        
+        # 调整窗口高度
+        new_height = max(min_height, window_height)
+        self.root.geometry(f"600x{new_height}")
     
     def save_cookie(self):
         """保存Cookie到环境变量文件"""
@@ -236,14 +348,15 @@ class FileUploadGUI:
     
     def upload_file(self):
         """上传文件"""
-        file_path = self.selected_file.get().strip()
-        if not file_path:
+        if not self.selected_files:
             messagebox.showwarning("警告", "请先选择要上传的文件！")
             return
             
-        if not os.path.exists(file_path):
-            messagebox.showwarning("警告", "选择的文件不存在！")
-            return
+        # 检查文件是否存在
+        for file_path in self.selected_files:
+            if not os.path.exists(file_path):
+                messagebox.showwarning("警告", f"文件不存在：{os.path.basename(file_path)}")
+                return
             
         cookie = self.cookie_var.get().strip()
         if not cookie:
@@ -253,45 +366,102 @@ class FileUploadGUI:
         # 禁用上传按钮
         self.upload_btn.config(state="disabled")
         
-        # 清空文件URL显示并禁用复制和打开按钮
-        self.file_url_var.set("")
-        self.copy_btn.config(state="disabled")
-        self.open_btn.config(state="disabled")
+        # 清空URL显示区域
+        self.clear_url_items()
+        
+        # 显示提示信息
+        uploading_label = ttk.Label(self.url_items_container, text="正在上传文件...", foreground="gray")
+        uploading_label.pack(anchor=tk.W, padx=5, pady=10)
+        self.url_items.append({'frame': uploading_label})
         
         self.status_var.set("正在上传文件...")
         self.result_text.delete(1.0, tk.END)
         
         # 在后台线程中执行上传
-        self.root.after(100, self._upload_file_thread, file_path, cookie)
+        self.root.after(100, self._upload_file_thread, self.selected_files, cookie)
     
-    def _upload_file_thread(self, file_path, cookie):
+    def _upload_file_thread(self, file_paths, cookie):
         """上传文件的后台线程"""
         try:
-            # 调用上传函数
-            self.result_text.insert(tk.END, f"正在上传文件：{os.path.basename(file_path)}\n")
+            total_files = len(file_paths)
+            success_count = 0
+            fail_count = 0
+            
+            self.result_text.insert(tk.END, f"开始上传 {total_files} 个文件...\n\n")
             self.root.update()
             
-            file_info = upload_file_to_oss(file_path, cookie, debug=True)
+            # 清空之前的上传记录
+            self.uploaded_files = []
             
-            if file_info:
-                # 显示上传结果
-                self.result_text.insert(tk.END, "\n上传成功！\n")
-                self.result_text.insert(tk.END, f"文件名：{file_info['name']}\n")
-                self.result_text.insert(tk.END, f"文件URL：{file_info['file']}\n")
-                self.result_text.insert(tk.END, f"文件大小：{file_info['size']} 字节\n")
-                self.result_text.insert(tk.END, f"文件类型：{file_info['type']}\n")
+            # 循环上传每个文件
+            for i, file_path in enumerate(file_paths, 1):
+                filename = os.path.basename(file_path)
+                self.result_text.insert(tk.END, f"[{i}/{total_files}] 正在上传：{filename}\n")
+                self.root.update()
                 
-                # 更新文件URL显示并启用复制和打开按钮
-                self.file_url_var.set(file_info['file'])
-                self.copy_btn.config(state="normal")
-                self.open_btn.config(state="normal")
+                try:
+                    file_info = upload_file_to_oss(file_path, cookie, debug=True)
+                    
+                    if file_info:
+                        # 显示上传结果
+                        self.result_text.insert(tk.END, f"   ✓ 上传成功！\n")
+                        self.result_text.insert(tk.END, f"     文件名：{file_info['name']}\n")
+                        self.result_text.insert(tk.END, f"     文件URL：{file_info['file']}\n")
+                        self.result_text.insert(tk.END, f"     文件大小：{file_info['size']} 字节\n")
+                        self.result_text.insert(tk.END, f"     文件类型：{file_info['type']}\n")
+                        
+                        success_count += 1
+                        self.uploaded_files.append(file_info)
+                    else:
+                        self.result_text.insert(tk.END, f"   ✗ 上传失败！\n")
+                        fail_count += 1
+                        
+                except Exception as e:
+                    self.result_text.insert(tk.END, f"   ✗ 上传出错：{str(e)}\n")
+                    fail_count += 1
                 
-                self.status_var.set("上传成功")
-                messagebox.showinfo("成功", "文件上传成功！")
+                self.result_text.insert(tk.END, "\n")
+                self.root.update()
+            
+            # 显示上传汇总
+            self.result_text.insert(tk.END, "========================================\n")
+            self.result_text.insert(tk.END, f"上传完成！共 {total_files} 个文件\n")
+            self.result_text.insert(tk.END, f"成功：{success_count} 个\n")
+            self.result_text.insert(tk.END, f"失败：{fail_count} 个\n")
+            
+            # 清空之前的URL显示项
+            self.clear_url_items()
+            
+            if self.uploaded_files:
+                # 为每个成功上传的文件创建URL显示项
+                for index, file_info in enumerate(self.uploaded_files):
+                    url_item = self.create_url_item(file_info, index)
+                    self.url_items.append(url_item)
+                
+                # 启用复制所有按钮
+                self.copy_all_btn.config(state="normal")
+                
+                # 自动调整窗口高度
+                self.adjust_window_height()
             else:
-                self.result_text.insert(tk.END, "\n上传失败！\n")
-                self.status_var.set("上传失败")
-                messagebox.showerror("错误", "文件上传失败！")
+                # 没有成功上传的文件，禁用复制所有按钮
+                self.copy_all_btn.config(state="disabled")
+                
+                # 显示提示信息
+                no_files_label = ttk.Label(self.url_items_container, text="没有成功上传的文件URL", foreground="gray")
+                no_files_label.pack(anchor=tk.W, padx=5, pady=10)
+                self.url_items.append({'frame': no_files_label})
+                
+            # 更新状态
+            if fail_count == 0:
+                self.status_var.set("全部上传成功")
+                messagebox.showinfo("成功", f"全部 {success_count} 个文件上传成功！")
+            elif success_count == 0:
+                self.status_var.set("全部上传失败")
+                messagebox.showerror("错误", f"全部 {fail_count} 个文件上传失败！")
+            else:
+                self.status_var.set("部分上传成功")
+                messagebox.showinfo("提示", f"上传完成！成功 {success_count} 个，失败 {fail_count} 个")
                 
         except Exception as e:
             self.result_text.insert(tk.END, f"\n上传过程中出错：{str(e)}\n")

@@ -103,7 +103,8 @@ COOKIE_STRING=remember_student=xxx
 
 ## 相关项目
 
-网页版本：[PicUp](https://github.com/itrfcn/PicUp)
+- Flask版本：[PicUp](https://github.com/itrfcn/PicUp)
+- PHP版本：[FreePic-PHP](https://github.com/itrfcn/FreePic-PHP/)
 
 ## 许可证
 
